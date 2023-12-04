@@ -60,6 +60,7 @@ const handleTransactionSubmitted = async (transactionData) => {
       amount: transactionData.amount,
     });
     toast.success('Transaction added.');
+    getAllTransactions();
   } catch (e) {
     console.log(e);
     toast.error('Transaction add failed.');
@@ -75,8 +76,8 @@ const generateUniqueId = () => {
 const handleTransactionDeleted = async (id) => {
   try {
     await deleteDoc(doc(db, "transactions", id));
-    getAllTransactions();
     toast.success('Transaction deleted.');
+    getAllTransactions();
   } catch (e) {
     console.log(e);
     toast.error('Transaction delete failed.');
