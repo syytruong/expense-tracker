@@ -3,36 +3,25 @@
   <div class="container">
     <Balance :total="total" />
     <IncomeExpenses :income="+income" :expenses="+expenses" :balances="+balances" />
-    <TransactionList
-      :transactions="transactions"
-      @transactionDeleted="handleTransactionDeleted"
-    />
+    <TransactionList :transactions="transactions" @transactionDeleted="handleTransactionDeleted" />
     <AddTransaction @transactionSubmitted="handleTransactionSubmitted" />
   </div>
 </template>
 
 <script setup>
-import Header from './components/Header.vue';
+import { addDoc, collection, getDocs, deleteDoc, doc } from "firebase/firestore";
+import { computed, ref } from 'vue';
+import { useToast } from 'vue-toastification';
+import AddTransaction from './components/AddTransaction.vue';
 import Balance from './components/Balance.vue';
+import Header from './components/Header.vue';
 import IncomeExpenses from './components/IncomeExpenses.vue';
 import TransactionList from './components/TransactionList.vue';
-import AddTransaction from './components/AddTransaction.vue';
-
-import { ref, computed, onMounted } from 'vue';
-
-import { useToast } from 'vue-toastification';
+import { db } from './libs/firebase';
 
 const toast = useToast();
 
 const transactions = ref([]);
-
-onMounted(() => {
-  const savedTransactions = JSON.parse(localStorage.getItem('transactions'));
-
-  if (savedTransactions) {
-    transactions.value = savedTransactions;
-  }
-});
 
 // Get total
 const total = computed(() => {
@@ -63,16 +52,18 @@ const balances = computed(() => {
 });
 
 // Submit transaction
-const handleTransactionSubmitted = (transactionData) => {
-  transactions.value.push({
-    id: generateUniqueId(),
-    text: transactionData.text,
-    amount: transactionData.amount,
-  });
-
-  saveTransactionsToLocalStorage();
-
-  toast.success('Transaction added.');
+const handleTransactionSubmitted = async (transactionData) => {
+  try {
+    await addDoc(collection(db, "transactions"), {
+      id: generateUniqueId(),
+      text: transactionData.text,
+      amount: transactionData.amount,
+    });
+    toast.success('Transaction added.');
+  } catch (e) {
+    console.log(e);
+    toast.error('Transaction add failed.');
+  }
 };
 
 // Generate unique ID
@@ -81,18 +72,28 @@ const generateUniqueId = () => {
 };
 
 // Delete transaction
-const handleTransactionDeleted = (id) => {
-  transactions.value = transactions.value.filter(
-    (transaction) => transaction.id !== id
-  );
-
-  saveTransactionsToLocalStorage();
-
-  toast.success('Transaction deleted.');
+const handleTransactionDeleted = async (id) => {
+  try {
+    await deleteDoc(doc(db, "transactions", id));
+    getAllTransactions();
+    toast.success('Transaction deleted.');
+  } catch (e) {
+    console.log(e);
+    toast.error('Transaction delete failed.');
+  }
 };
 
-// Save transactions to local storage
-const saveTransactionsToLocalStorage = () => {
-  localStorage.setItem('transactions', JSON.stringify(transactions.value));
-};
+// Get all transactions from db
+const getAllTransactions = async () => {
+  transactions.value = [];
+  const querySnapshot = await getDocs(collection(db, "transactions"));
+  querySnapshot.forEach((doc) => {
+    transactions.value.push({
+      ...doc.data(),
+      id: doc.id,
+    })
+  });
+}
+
+getAllTransactions();
 </script>
